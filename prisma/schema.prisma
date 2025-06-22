@@ -1,0 +1,210 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Users {
+  id               String             @id @default(auto()) @map("_id") @db.ObjectId()
+  fullname         String?
+  email            String             @unique
+  password         String
+  isAdmin          Boolean?
+  accounts         Account[]
+  categories       Category[]
+  transactions     Transaction[]
+  tasks            Task[]
+  InternalTransfer InternalTransfer[]
+  Customer         Customer[]
+
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  FacilityAccounts FacilityAccounts[]
+  JournalEntry     JournalEntry[]
+  Supplier         Supplier[]
+  PaymentEntry     PaymentEntry[]
+}
+
+model Category {
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  category_name String        @unique
+  transaction   Transaction[]
+  user_id       String        @db.ObjectId
+  users         Users         @relation(fields: [user_id], references: [id])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([user_id])
+}
+
+model Transaction {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  transaction_type String
+  category_id      String   @db.ObjectId
+  amount           Float
+  account_id       String   @db.ObjectId
+  user_id          String   @db.ObjectId
+  description      String?  @db.String
+  registered_date  DateTime @default(now()) @db.Date
+
+  accounts   Account  @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  users      Users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  categories Category @relation(fields: [category_id], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([account_id])
+  @@index([category_id])
+  @@index([user_id])
+}
+
+model Account {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  bank_name      String
+  account_name   String
+  account_number String        @unique
+  balance        Float         @default(0)
+  user_id        String?       @db.ObjectId
+  users          Users?        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  transactions   Transaction[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  internalTransfersSent     InternalTransfer[] @relation("fromAccount")
+  internalTransfersReceived InternalTransfer[] @relation("toAccount")
+  JournalEntry              JournalEntry[]
+  PaymentEntry              PaymentEntry[]
+
+  @@index([user_id])
+}
+
+model InternalTransfer {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  transfer_type   String   @default("internal_transfer")
+  from_account    String   @db.ObjectId
+  to_account      String   @db.ObjectId
+  fromAccount     Account? @relation("fromAccount", fields: [from_account], references: [id])
+  toAccount       Account? @relation("toAccount", fields: [to_account], references: [id])
+  amount          Float
+  user_id         String   @db.ObjectId
+  registered_date DateTime @default(now()) @db.Date
+
+  users Users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  customer_name String
+  phone         String
+  address       String         @unique
+  balance       Float          @default(0)
+  user_id       String?        @db.ObjectId
+  users         Users?         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  JournalEntry  JournalEntry[]
+  PaymentEntry  PaymentEntry[]
+
+  @@index([user_id])
+}
+
+model Supplier {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  supplier_name String
+  phone         String
+  address       String         @unique
+  balance       Float          @default(0)
+  user_id       String?        @db.ObjectId
+  users         Users?         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  JournalEntry  JournalEntry[]
+  PaymentEntry  PaymentEntry[]
+
+  @@index([user_id])
+}
+
+model Task {
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
+  subject             String
+  status              String
+  priority            String
+  description         String?   @db.String
+  expected_start_date DateTime? @db.Date
+  expected_end_date   DateTime? @db.Date
+  user_id             String    @db.ObjectId
+  users               Users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([user_id])
+}
+
+// this model's aim is to register only two accounts: account receivable and account payable
+model FacilityAccounts {
+  id           String         @id @default(auto()) @map("_id") @db.ObjectId
+  account_name String         @unique
+  balance      Float          @default(0)
+  user_id      String?        @db.ObjectId
+  users        Users?         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  JournalEntry JournalEntry[]
+  PaymentEntry PaymentEntry[]
+
+  @@index([user_id])
+}
+
+model JournalEntry {
+  id                      String            @id @default(auto()) @map("_id") @db.ObjectId
+  entry_type              String
+  amount                  Float             @default(0)
+  description             String
+  customer_or_supplier_id String?           @db.ObjectId
+  facility_accounts       FacilityAccounts? @relation(fields: [customer_or_supplier_id], references: [id], onDelete: Cascade)
+  bank_account_id         String?           @db.ObjectId
+  bank_accounts           Account?          @relation(fields: [bank_account_id], references: [id], onDelete: Cascade)
+  customer_id             String?           @db.ObjectId
+  customers               Customer?         @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  supplier_id             String?           @db.ObjectId
+  suppliers               Supplier?         @relation(fields: [supplier_id], references: [id], onDelete: Cascade)
+  user_id                 String?           @db.ObjectId
+  users                   Users?            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  registered_date         DateTime          @default(now()) @db.Date
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+
+  @@index([user_id])
+}
+
+model PaymentEntry {
+  id                      String            @id @default(auto()) @map("_id") @db.ObjectId
+  entry_type              String
+  amount                  Float             @default(0)
+  description             String
+  customer_or_supplier_id String?           @db.ObjectId
+  facility_accounts       FacilityAccounts? @relation(fields: [customer_or_supplier_id], references: [id], onDelete: Cascade)
+  bank_account_id         String?           @db.ObjectId
+  bank_accounts           Account?          @relation(fields: [bank_account_id], references: [id], onDelete: Cascade)
+  customer_id             String?           @db.ObjectId
+  customers               Customer?         @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  supplier_id             String?           @db.ObjectId
+  suppliers               Supplier?         @relation(fields: [supplier_id], references: [id], onDelete: Cascade)
+  user_id                 String?           @db.ObjectId
+  users                   Users?            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  registered_date         DateTime          @default(now()) @db.Date
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+
+  @@index([user_id])
+}
