@@ -15,7 +15,7 @@ model Users {
   fullname         String?
   email            String             @unique
   password         String
-  isAdmin          Boolean?
+  isAdmin          Boolean?           @default(true)
   accounts         Account[]
   categories       Category[]
   transactions     Transaction[]
